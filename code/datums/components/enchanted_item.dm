@@ -27,7 +27,7 @@
 /datum/component/enchanted_weapon/Initialize(
 	n_duration = 15 MINUTES,
 	n_refresh_count = 4,
-	n_refresh_skill = /datum/skill/magic/arcane,
+	n_refresh_skill = /datum/attribute/skill/magic/arcane,
 	n_skill_threshold = SKILL_LEVEL_JOURNEYMAN,
 	n_enchant_type = SEARING_BLADE_ENCHANT,
 	n_current_user,
@@ -43,11 +43,11 @@
 	if(n_current_user)
 		current_user = WEAKREF(n_current_user)
 
-	RegisterSignal(parent, COMSIG_PARENT_EXAMINE, PROC_REF(on_examine))
+	RegisterSignal(parent, COMSIG_ATOM_EXAMINE, PROC_REF(on_examine))
 	RegisterSignal(parent, COMSIG_ITEM_EQUIPPED, PROC_REF(on_equip))
 	RegisterSignal(parent, COMSIG_ITEM_DROPPED, PROC_REF(on_drop))
 	RegisterSignal(parent, COMSIG_ITEM_AFTERATTACK, PROC_REF(item_afterattack))
-	RegisterSignal(parent, COMSIG_PARENT_QDELETING, PROC_REF(clean_up))
+	RegisterSignal(parent, COMSIG_QDELETING, PROC_REF(clean_up))
 
 	var/obj/item/weapon/I = parent
 	switch(enchant_type)
@@ -83,10 +83,10 @@
 	if(refresh_count != -1 && refresh_count <= 0)
 		clean_up(TRUE)
 		return
-	if(refresh_skill && !holder.has_skill(refresh_skill))
+	if(refresh_skill && !GET_MOB_SKILL_VALUE(holder, refresh_skill))
 		clean_up(TRUE)
 		return
-	if(skill_threshold && holder.get_skill_level(refresh_skill) < skill_threshold)
+	if(skill_threshold && GET_MOB_SKILL_VALUE(holder, refresh_skill) < skill_threshold)
 		clean_up(TRUE)
 		return
 

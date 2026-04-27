@@ -74,6 +74,7 @@ GLOBAL_VAR_INIT(mobids, 1)
  * * Intialize the movespeed of the mob
  */
 /mob/Initialize()
+	SHOULD_CALL_PARENT(TRUE)
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_MOB_CREATED, src)
 	GLOB.mob_list += src
 	GLOB.mob_directory[tag] = src
@@ -92,10 +93,31 @@ GLOBAL_VAR_INIT(mobids, 1)
 		AA.onNewMob(src)
 	set_nutrition(rand(NUTRITION_LEVEL_START_MIN, NUTRITION_LEVEL_START_MAX))
 	set_hydration(rand(HYDRATION_LEVEL_START_MIN, HYDRATION_LEVEL_START_MAX))
+	attribute_initialize()
 	. = ..()
 	update_config_movespeed()
 	update_movespeed(TRUE)
 	become_hearing_sensitive()
+
+/// Attributes
+/mob/proc/attribute_initialize()
+	// If we have an attribute holder, lets get that W
+	if(!ispath(attributes))
+		return
+	attributes = new attributes(src)
+
+	// Seed raw stat values from the subtype's base_* vars.
+	// These are var/final so we read via initial() to get the
+	// compile-time value for this specific subtype.
+	attributes.raw_attribute_list[STAT_STRENGTH]     = initial(base_strength)
+	attributes.raw_attribute_list[STAT_PERCEPTION]   = initial(base_perception)
+	attributes.raw_attribute_list[STAT_ENDURANCE]    = initial(base_endurance)
+	attributes.raw_attribute_list[STAT_CONSTITUTION] = initial(base_constitution)
+	attributes.raw_attribute_list[STAT_INTELLIGENCE] = initial(base_intelligence)
+	attributes.raw_attribute_list[STAT_SPEED]        = initial(base_speed)
+	attributes.raw_attribute_list[STAT_FORTUNE]      = initial(base_fortune)
+	attributes.update_attributes()
+
 
 /**
  * Generate the tag for this mob
@@ -182,6 +204,14 @@ GLOBAL_VAR_INIT(mobids, 1)
 			continue
 		//This entire if/else chain could be in two lines but isn't for readibilties sake.
 		var/msg = message
+		var/signal = SEND_SIGNAL(M, COMSIG_MOB_VISIBLE_MESSAGE, src, message, vision_distance, ignored_mobs)
+		if(signal & COMPONENT_NO_VISIBLE_MESSAGE)
+			msg = null
+		else if(signal & COMPONENT_VISIBLE_MESSAGE_BLIND)
+			msg = blind_message
+		if(!msg)
+			continue
+
 		if(M.see_invisible < invisibility)//if src is invisible to M
 			msg = blind_message
 		if(!msg)
@@ -386,6 +416,8 @@ GLOBAL_VAR_INIT(mobids, 1)
 			client.eye = client.mob
 			client.perspective = MOB_PERSPECTIVE
 
+	SEND_SIGNAL(src, COMSIG_MOB_RESET_PERSPECTIVE, new_perspective)
+
 /// Show the mob's inventory to another mob
 /mob/proc/show_inv(mob/user)
 	return
@@ -415,10 +447,17 @@ GLOBAL_VAR_INIT(mobids, 1)
 		to_chat(src, span_warning("Something is there but I can't see it!"))
 		return
 
+	var/flags = SEND_SIGNAL(src, COMSIG_MOB_EXAMINATE, examinify)
+	if(flags & COMPONENT_NO_EXAMINATE)
+		return
+	else if(flags & COMPONENT_EXAMINATE_BLIND)
+		to_chat(src, span_warning("Something is there but i can't see it!"))
+		return
+
 	if(isturf(examinify.loc) && isliving(src) && stat == CONSCIOUS)
 		face_atom(examinify)
 		if(m_intent != MOVE_INTENT_SNEAK)
-			visible_message(span_emote("[src] looks at [examinify]."), span_emote("I look at [examinify]"))
+			visible_message(span_emote("[src] looks at [examinify]."), span_emote("I look at [examinify]."))
 		else if(isliving(examinify))
 			var/mob/living/examaniee = examinify
 			if(examaniee.peek_examine_check(src))
@@ -432,6 +471,13 @@ GLOBAL_VAR_INIT(mobids, 1)
 
 	var/list/result = examinify.examine(src)
 	if(LAZYLEN(result))
+		var/list/mechanics_result = examinify.get_mechanics_examine(src)
+		if(length(mechanics_result))
+			var/mechanics_result_str = "<details><summary>Mechanics</summary>"
+			for(var/line in mechanics_result)
+				mechanics_result_str += " - " + span_blue(line) + "\n"
+			mechanics_result_str += "</details>"
+			result += mechanics_result_str
 		for(var/i in 1 to (length(result) - 1))
 			result[i] += "\n"
 		to_chat(src, examine_block("<span class='infoplain'>[result.Join()]</span>"))
@@ -444,7 +490,7 @@ GLOBAL_VAR_INIT(mobids, 1)
 	if(is_blind() || stat < CONSCIOUS)
 		return FALSE
 
-	var/observer_skill = observer.get_skill_level(/datum/skill/misc/sneaking)
+	var/observer_skill = GET_MOB_SKILL_VALUE_OLD(observer, /datum/attribute/skill/misc/sneaking)
 	if(observer_skill <= 0)
 		observer_skill = 1
 	if(observer.rogue_sneaking)
@@ -452,7 +498,7 @@ GLOBAL_VAR_INIT(mobids, 1)
 
 	var/multiplier = 5
 
-	var/our_per = STAPER
+	var/our_per = GET_MOB_ATTRIBUTE_VALUE(src, STAT_PERCEPTION)
 	if(our_per < 5)
 		multiplier = 4
 	else if(our_per >= 5 && our_per < 10)
@@ -709,11 +755,11 @@ GLOBAL_VAR_INIT(mobids, 1)
  * * no transform not set
  * * we are not restrained
  */
-/mob/proc/canface(atom/A)
+/mob/proc/canface(atom/atom_to_face)
 	if(client)
 		if(world.time < client.last_turn)
 			return FALSE
-	if(stat == DEAD || stat == UNCONSCIOUS)
+	if(stat == DEAD || stat == UNCONSCIOUS || stat == HARD_CRIT)
 		return FALSE
 	if(anchored)
 		return FALSE
@@ -721,46 +767,16 @@ GLOBAL_VAR_INIT(mobids, 1)
 		return FALSE
 	if(HAS_TRAIT(src, TRAIT_RESTRAINED))
 		return FALSE
-	if( buckled || stat != CONSCIOUS)
-		return FALSE
+	if( buckled || stat != CONSCIOUS || !atom_to_face || !x || !y || !atom_to_face.x || !atom_to_face.y )
+		return
 	return TRUE
 
 ///Checks mobility move as well as parent checks
-/mob/living/canface(atom/A)
+/mob/living/canface(atom/atom_to_face)
 	if(HAS_TRAIT(src, TRAIT_IMMOBILIZED))
 		return FALSE
 	if(world.time < last_dir_change + 5)
-		return
-	if(A && pulledby && pulledby.grab_state >= GRAB_AGGRESSIVE) //the reason this isn't a mobility_flags check is because you want them to be able to change dir if you're passively grabbing them
-		// get_cardinal_dir is inconsistent, reuse face_atom code
-		var/dx = A.x - src.x
-		var/dy = A.y - src.y
-		var/dir
-		if(!dx && !dy) // Wall items are graphically shifted but on the floor
-			if(A.pixel_y > 16)
-				dir = NORTH
-			else if(A.pixel_y < -16)
-				dir = SOUTH
-			else if(A.pixel_x > 16)
-				dir = EAST
-			else if(A.pixel_x < -16)
-				dir = WEST
-		else
-			if(abs(dx) < abs(dy))
-				if(dy > 0)
-					dir = NORTH
-				else
-					dir = SOUTH
-			else
-				if(dx > 0)
-					dir = EAST
-				else
-					dir = WEST
-		if(dir == pulledby.dir) // can never face away from the person grabbing you
-			return FALSE
-		for(var/obj/item/grabbing/G in grabbedby) // only chokeholds prevent turning
-			if(G.chokehold)
-				return FALSE
+		return FALSE
 	if(IsImmobilized())
 		return FALSE
 	return ..()
@@ -1234,6 +1250,10 @@ GLOBAL_VAR_INIT(mobids, 1)
 		remove_movespeed_modifier(MOVESPEED_ID_MOB_EQUIPMENT, update=TRUE)
 	else
 		add_movespeed_modifier(MOVESPEED_ID_MOB_EQUIPMENT, update=TRUE, priority=100, override=TRUE, multiplicative_slowdown=speedies, blacklisted_movetypes=FLOATING)
+
+/mob/living/carbon/update_equipment_speed_mods()
+	. = ..()
+	update_carry_weight()
 
 /// Gets the combined speed modification of all worn items
 /// Except base mob type doesnt really wear items

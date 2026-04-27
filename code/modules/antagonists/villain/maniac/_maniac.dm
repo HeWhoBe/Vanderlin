@@ -3,6 +3,21 @@
 	explanation_text = "FOLLOWING my HEART shall be the WHOLE of the law."
 	flavor = "Dream"
 
+/datum/attribute_holder/sheet/job/maniac
+	raw_attribute_list = list(
+		STAT_STRENGTH = 6,
+		STAT_CONSTITUTION = 6,
+		STAT_ENDURANCE = 6,
+
+		/datum/attribute/skill/combat/knives = 60,
+		/datum/attribute/skill/combat/wrestling = 50,
+		/datum/attribute/skill/combat/unarmed = 50,
+		/datum/attribute/skill/misc/climbing = 50,
+		/datum/attribute/skill/misc/athletics = 40,
+		/datum/attribute/skill/misc/medicine = 40
+
+	)
+
 /datum/antagonist/maniac
 	name = "Maniac"
 	roundend_category = "Maniacs"
@@ -106,20 +121,12 @@ GLOBAL_VAR_INIT(maniac_highlander, 0) // THERE CAN ONLY BE ONE!
 			dreamer.set_patron(/datum/patron/inhumen/graggar_zizo)
 			old_cm = dreamer.cmode_music
 			dreamer.cmode_music = 'sound/music/cmode/antag/combat_maniac.ogg'
-			dreamer.adjust_skillrank(/datum/skill/combat/knives, 6, TRUE)
-			dreamer.adjust_skillrank(/datum/skill/combat/wrestling, 5, TRUE)
-			dreamer.adjust_skillrank(/datum/skill/combat/unarmed, 5, TRUE)
-			dreamer.adjust_skillrank(/datum/skill/misc/climbing, 5, TRUE)
-			dreamer.adjust_skillrank(/datum/skill/misc/athletics, 4, TRUE)
-			dreamer.adjust_skillrank(/datum/skill/misc/medicine, 4, TRUE)
 			phy.bleed_mod *= 0.5
 			for(var/datum/status_effect/effect in dreamer.status_effects) //necessary to prevent exploits
 				dreamer.remove_status_effect(effect)
-			dreamer.modifier_set_stat_to("[type]", STATKEY_STR, 16)
-			dreamer.modifier_set_stat_to("[type]", STATKEY_CON, 16)
-			dreamer.modifier_set_stat_to("[type]", STATKEY_END, 16)
+			dreamer.attributes?.add_sheet(/datum/attribute_holder/sheet/job/maniac)
 			var/obj/item/organ/heart/heart = dreamer.getorganslot(ORGAN_SLOT_HEART)
-			dreamer.remove_stat_modifier(STATMOD_AGE)
+			dreamer.update_age_stats(dreamer.age, TRUE)
 			if(heart) // clear any inscryptions, in case of being made maniac midround
 				heart.inscryptions = list()
 				heart.inscryption_keys = list()
@@ -129,6 +136,7 @@ GLOBAL_VAR_INIT(maniac_highlander, 0) // THERE CAN ONLY BE ONE!
 			dreamer.remove_curse(/datum/curse/zizo)
 			dreamer.AddComponent(/datum/component/theme_music)
 		//	dreamer.remove_client_colour(/datum/client_colour/maniac_marked)
+		RegisterSignal(owner.current, COMSIG_EMOTE_PRAY, PROC_REF(on_owner_pray))
 		owner.current.refresh_looping_ambience()
 		hallucinations = owner.current.overlay_fullscreen("maniac", /atom/movable/screen/fullscreen/maniac)
 	LAZYINITLIST(owner.learned_recipes)
@@ -140,9 +148,24 @@ GLOBAL_VAR_INIT(maniac_highlander, 0) // THERE CAN ONLY BE ONE!
 		owner.announce_objectives()
 	START_PROCESSING(SSobj, src)
 
+/datum/antagonist/maniac/proc/on_owner_pray(mob/living/follower, message)
+	SIGNAL_HANDLER
+	if(text2num(message) == sum_keys)
+		INVOKE_ASYNC(src, PROC_REF(wake_up))
+
+/datum/patron/inhumen/graggar_zizo/hear_prayer(mob/living/follower, message)
+	var/datum/antagonist/maniac/dreamer = follower.mind.has_antag_datum(/datum/antagonist/maniac)
+	if(!dreamer)
+		return FALSE
+	if(text2num(message) == dreamer.sum_keys)
+		INVOKE_ASYNC(dreamer, TYPE_PROC_REF(/datum/antagonist/maniac, wake_up))
+		return TRUE
+	. = ..()
+
 /datum/antagonist/maniac/on_removal()
 	STOP_PROCESSING(SSobj, src)
 	if(owner.current)
+		UnregisterSignal(owner.current, COMSIG_EMOTE_PRAY)
 		if(!silent)
 			to_chat(owner.current,span_danger("I am no longer a MANIAC!"))
 		if(ishuman(owner.current))

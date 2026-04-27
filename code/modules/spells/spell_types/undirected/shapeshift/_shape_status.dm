@@ -37,13 +37,13 @@
 	owner.gender = caster_mob.gender
 	owner.regenerate_icons()
 
-	var/datum/skill_holder/temporary_holder
+	var/datum/attribute_holder/temporary_holder
 	if(!keep_skills)
-		temporary_holder = caster_mob.ensure_skills()
-		temporary_holder.set_current(null)
-	caster_mob.mind?.transfer_to(owner)
+		temporary_holder = caster_mob.attributes
+		temporary_holder?.set_parent(null)
+	caster_mob.mind?.transfer_to(owner) // attribute_holder will try to set new parent upon mind transfer
 	if(temporary_holder)
-		temporary_holder.set_current(caster_mob)
+		temporary_holder.set_parent(caster_mob)
 
 	caster_mob.forceMove(owner)
 	ADD_TRAIT(caster_mob, TRAIT_NO_TRANSFORM, id)
@@ -54,7 +54,7 @@
 	RegisterSignal(owner, COMSIG_PRE_MOB_CHANGED_TYPE, PROC_REF(on_pre_type_change))
 	RegisterSignal(owner, COMSIG_LIVING_DEATH, PROC_REF(on_shape_death))
 	RegisterSignal(caster_mob, COMSIG_LIVING_DEATH, PROC_REF(on_caster_death))
-	RegisterSignal(caster_mob, COMSIG_PARENT_QDELETING, PROC_REF(on_caster_deleted))
+	RegisterSignal(caster_mob, COMSIG_QDELETING, PROC_REF(on_caster_deleted))
 
 	SEND_SIGNAL(caster_mob, COMSIG_LIVING_SHAPESHIFTED, owner)
 	return TRUE
@@ -100,7 +100,7 @@
 
 	already_restored = TRUE
 	UnregisterSignal(owner, list(COMSIG_LIVING_PRE_WABBAJACKED, COMSIG_LIVING_DEATH))
-	UnregisterSignal(caster_mob, list(COMSIG_PARENT_QDELETING, COMSIG_LIVING_DEATH))
+	UnregisterSignal(caster_mob, list(COMSIG_QDELETING, COMSIG_LIVING_DEATH))
 
 	caster_mob.forceMove(owner.loc)
 	REMOVE_TRAIT(caster_mob, TRAIT_NO_TRANSFORM, id)
@@ -109,7 +109,7 @@
 
 	// We aren't keeping skills, so trash the owner's skills. Don't qdel in case we're caching the owner's skill holder for some reason.
 	if(!keep_skills)
-		owner.ensure_skills().set_current(null)
+		owner.attributes?.set_parent(null)
 
 	owner.mind?.transfer_to(caster_mob)
 
@@ -153,7 +153,7 @@
 	else
 		owner.death()
 
-/// Signal proc for [COMSIG_PARENT_QDELETING] from our caster, delete us / our owner if we get deleted
+/// Signal proc for [COMSIG_QDELETING] from our caster, delete us / our owner if we get deleted
 /datum/status_effect/shapechange_mob/proc/on_caster_deleted(datum/source)
 	SIGNAL_HANDLER
 

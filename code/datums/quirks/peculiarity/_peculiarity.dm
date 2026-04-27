@@ -49,7 +49,7 @@
 	if(!ishuman(owner))
 		return
 	var/mob/living/carbon/human/H = owner
-	H.adjust_stat_modifier(STATMOD_QUIRK, STATKEY_INT, rand(-2, -5))
+	H.adjust_stat_modifier(STATMOD_QUIRK, list(STAT_INTELLIGENCE = rand(-2, -5)))
 
 	REMOVE_TRAIT(H, TRAIT_BEAUTIFUL, QUIRK_TRAIT)
 	REMOVE_TRAIT(H, TRAIT_UGLY, QUIRK_TRAIT)
@@ -66,7 +66,7 @@
 	var/mob/living/carbon/human/H = owner
 	// Remove stat penalty (inverse of what was applied)
 	// This is approximate since we randomized on spawn
-	H.adjust_stat_modifier(STATMOD_QUIRK, STATKEY_INT, 3)
+	H.adjust_stat_modifier(STATMOD_QUIRK, list(STAT_INTELLIGENCE = 3))
 
 /datum/quirk/peculiarity/ugly
 	name = "Ugly"
@@ -153,7 +153,7 @@
 	else
 		to_chat(box_owner, span_warning("You can't remember who knows the passcode..."))
 
-	RegisterSignal(mystery_box, COMSIG_PARENT_EXAMINE, PROC_REF(on_examine), TRUE)
+	RegisterSignal(mystery_box, COMSIG_ATOM_EXAMINE, PROC_REF(on_examine), TRUE)
 
 /datum/quirk/peculiarity/mystery_box/proc/on_examine(datum/source, mob/user, list/examine_list)
 	if(user == keeper)
@@ -185,20 +185,25 @@
 
 /datum/quirk/peculiarity/mystery_box/on_remove()
 	if(mystery_box)
-		UnregisterSignal(mystery_box, COMSIG_PARENT_EXAMINE)
+		UnregisterSignal(mystery_box, COMSIG_ATOM_EXAMINE)
 		qdel(mystery_box)
 
 /obj/item/mystery
 	name = "locked box"
 	desc = "A mysterious locked box."
 	icon = 'icons/roguetown/items/misc.dmi'
-	icon_state = "mimic_trinket"
+	icon_state = "mysterybox"
+	detail_tag = "_detail"
 	var/datum/quirk/peculiarity/mystery_box/linked_quirk
 	var/listening = TRUE
+	dropshrink = 0.8
+	item_weight = 750 GRAMS
 
 /obj/item/mystery/Initialize()
 	. = ..()
 	become_hearing_sensitive()
+	detail_color = pick_assoc(COLOR_MAP)
+	update_appearance()
 
 /obj/item/mystery/Destroy()
 	lose_hearing_sensitivity()

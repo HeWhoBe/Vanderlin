@@ -43,8 +43,8 @@
 /mob/dead/observer/rogue/arcaneeye/Crossed(mob/living/L)
 	if(istype(L, /mob/living/carbon/human))
 		var/mob/living/carbon/human/V = L
-		var/holyskill = V.get_skill_level(/datum/skill/magic/holy)
-		var/magicskill = V.get_skill_level(/datum/skill/magic/arcane)
+		var/holyskill = GET_MOB_SKILL_VALUE_OLD(V, /datum/attribute/skill/magic/holy)
+		var/magicskill = GET_MOB_SKILL_VALUE_OLD(V, /datum/attribute/skill/magic/arcane)
 		if(magicskill >= 2)
 			to_chat(V, "<font color='red'>An ancient and unusual magic looms in the air around you.</font>")
 			return
@@ -84,15 +84,15 @@
 	set category = "RoleUnique.Arcane Eye"
 	set name = "Move Up"
 
-	if(zMove(UP, TRUE))
+	if(zMove(UP, z_move_flags = ZMOVE_FEEDBACK))
 		to_chat(src, span_notice("I move upwards."))
 
 /mob/dead/observer/rogue/arcaneeye/proc/eye_down()
 	set category = "RoleUnique.Arcane Eye"
 	set name = "Move Down"
 
-	if(zMove(DOWN, TRUE))
-		to_chat(src, span_notice("I move down."))
+	if(zMove(DOWN, z_move_flags = ZMOVE_FEEDBACK))
+		to_chat(src, span_notice("I move downwards."))
 
 /mob/dead/observer/rogue/arcaneeye/proc/scry_tele()
 	set category = "RoleUnique.Arcane Eye"

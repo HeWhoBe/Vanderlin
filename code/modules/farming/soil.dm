@@ -92,10 +92,10 @@
 	if(!produce_ready)
 		return
 	apply_farming_fatigue(user, 4)
-	add_sleep_experience(user, /datum/skill/labor/farming, user.STAINT * 2)
+	add_sleep_experience(user, /datum/attribute/skill/labor/farming, GET_MOB_ATTRIBUTE_VALUE(user, STAT_INTELLIGENCE) * 2)
 
 	return_nutrients_to_soil()
-	var/farming_skill = user.get_skill_level(/datum/skill/labor/farming, TRUE)
+	var/farming_skill = GET_MOB_SKILL_VALUE_OLD(user, /datum/attribute/skill/labor/farming)
 	var/chance_to_ruin = 50 - (farming_skill * 25)
 	if(prob(chance_to_ruin))
 		ruin_produce()
@@ -246,14 +246,14 @@
 			apply_farming_fatigue(user, 20)
 			to_chat(user, span_notice("I rip out the weeds."))
 			deweed()
-			add_sleep_experience(user, /datum/skill/labor/farming, user.STAINT * 0.2)
+			add_sleep_experience(user, /datum/attribute/skill/labor/farming, GET_MOB_ATTRIBUTE_VALUE(user, STAT_INTELLIGENCE) * 0.2)
 			SEND_SIGNAL(user, COMSIG_PLANT_TENDED)
 		return TRUE
 	if(istype(attacking_item, /obj/item/weapon/hoe))
 		apply_farming_fatigue(user, 10)
 		to_chat(user, span_notice("I rip out the weeds with the [attacking_item]"))
 		deweed()
-		add_sleep_experience(user, /datum/skill/labor/farming, user.STAINT * 0.2)
+		add_sleep_experience(user, /datum/attribute/skill/labor/farming, GET_MOB_ATTRIBUTE_VALUE(user, STAT_INTELLIGENCE) * 0.2)
 		SEND_SIGNAL(user, COMSIG_PLANT_TENDED)
 		return TRUE
 	return FALSE
@@ -291,7 +291,7 @@
 			to_chat(user, span_notice("I remove the crop."))
 			playsound(src,'sound/items/seed.ogg', 100, FALSE)
 			uproot()
-			add_sleep_experience(user, /datum/skill/labor/farming, user.STAINT * 0.2)
+			add_sleep_experience(user, /datum/attribute/skill/labor/farming, GET_MOB_ATTRIBUTE_VALUE(user, STAT_INTELLIGENCE) * 0.2)
 		return
 	. = ..()
 
@@ -1160,23 +1160,23 @@
 /obj/structure/soil/proc/add_signals()
 	var/turf/above = get_step(src, NORTH)
 	RegisterSignal(above, COMSIG_ATOM_ENTERED, PROC_REF(on_entered))
-	RegisterSignal(above, COMSIG_TURF_EXITED, PROC_REF(on_exited))
+	RegisterSignal(above, COMSIG_ATOM_EXITED, PROC_REF(on_exited))
 	LAZYADD(marked_turfs, above)
 	RegisterSignal(get_step(above, WEST), COMSIG_ATOM_ENTERED, PROC_REF(on_entered))
-	RegisterSignal(get_step(above, WEST), COMSIG_TURF_EXITED, PROC_REF(on_exited))
+	RegisterSignal(get_step(above, WEST), COMSIG_ATOM_EXITED, PROC_REF(on_exited))
 	LAZYADD(marked_turfs, get_step(above, WEST))
 	RegisterSignal(get_step(above, EAST), COMSIG_ATOM_ENTERED, PROC_REF(on_entered))
-	RegisterSignal(get_step(above, EAST), COMSIG_TURF_EXITED, PROC_REF(on_exited))
+	RegisterSignal(get_step(above, EAST), COMSIG_ATOM_EXITED, PROC_REF(on_exited))
 	LAZYADD(marked_turfs, get_step(above, EAST))
 
 /obj/structure/soil/proc/remove_signals()
 	var/turf/above = get_step(src, NORTH)
 	UnregisterSignal(above, COMSIG_ATOM_ENTERED)
-	UnregisterSignal(above, COMSIG_TURF_EXITED)
+	UnregisterSignal(above, COMSIG_ATOM_EXITED)
 	UnregisterSignal(get_step(above, WEST), COMSIG_ATOM_ENTERED)
-	UnregisterSignal(get_step(above, WEST), COMSIG_TURF_EXITED)
+	UnregisterSignal(get_step(above, WEST), COMSIG_ATOM_EXITED)
 	UnregisterSignal(get_step(above, EAST), COMSIG_ATOM_ENTERED)
-	UnregisterSignal(get_step(above, EAST), COMSIG_TURF_EXITED)
+	UnregisterSignal(get_step(above, EAST), COMSIG_ATOM_EXITED)
 	LAZYCLEARLIST(marked_turfs)
 	for(var/mob/mob as anything in vanished)
 		var/image/overlay = LAZYACCESS(vanished, mob)
@@ -1210,7 +1210,7 @@
 	LAZYADDASSOC(vanished, crossed, overlay)
 
 
-/obj/structure/soil/proc/on_exited(turf/source, mob/crossed, direction)
+/obj/structure/soil/proc/on_exited(turf/source, mob/crossed, atom/new_loc)
 	if(!isliving(crossed))
 		return
 	if(get_step(source, crossed.dir) in marked_turfs)
